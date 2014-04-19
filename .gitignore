@@ -1,0 +1,10 @@
+*.a
+*.o
+*dist
+*build
+*.inc
+*nbproject
+*stat
+*.sh
+*.exe
+*.txt
