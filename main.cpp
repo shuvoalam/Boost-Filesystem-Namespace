@@ -1,19 +1,8 @@
-/* 
- * File:   main.cpp
- * Author: jonathan
- *
- * Created on April 19, 2014, 10:07 AM
- */
-
-#include <cstdlib>
+#include <iostream>
 
 using namespace std;
 
-/*
- * 
- */
-int main(int argc, char** argv) {
-
+int main(int ac, char **av)
+{
     return 0;
 }
-
