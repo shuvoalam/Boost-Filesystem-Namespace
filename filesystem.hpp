@@ -23,9 +23,14 @@
 namespace fsys
 {
     struct result_data_boolean;
+    class tree_iterator_class;
+    class tree_riterator_class;
+    class copy_iterator_class : public tree_riterator_class;
+    class delete_iterator_class : public tree_riterator_class;
     
     
-    struct result_data_boolean{
+    struct result_data_boolean
+    {
         
         const result_data_boolean& operator=(const result_data_boolean& res)
         {
