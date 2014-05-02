@@ -487,7 +487,7 @@ namespace fsys
         }
     }
     
-    tree_riterator_class::~tree_riterator_class()
+    virtual tree_riterator_class::~tree_riterator_class()
     {
     }
     
@@ -641,6 +641,10 @@ invalid path!  Args can only be a folder.";
         }
     }
     
+    copy_iterator_class::~copy_iterator_class
+    {
+    }
+    
     tree_riterator_class copy_iterator_class::operator++(int x)
     {
         this->err.value = false;
@@ -786,6 +790,10 @@ can not construct object with invalid pathname!  Path must be a folder!";
         {
             throw;
         }
+    }
+    
+    delete_iterator_class::~delete_iterator_class()
+    {
     }
     
     const tree_riterator_class& delete_iterator_class::operator=(const delete_iterator_class& d)

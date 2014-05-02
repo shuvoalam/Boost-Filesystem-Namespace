@@ -94,7 +94,7 @@ namespace fsys
         explicit tree_riterator_class(const std::string&);
         explicit tree_riterator_class() : p(), it(), end(), is_good_path(false) {}
         
-        ~tree_riterator_class();
+        virtual ~tree_riterator_class();
         
         virtual const tree_riterator_class& operator=(const tree_riterator_class&);
         virtual tree_riterator_class operator++(int);
@@ -119,6 +119,8 @@ namespace fsys
         explicit copy_iterator_class() : tree_riterator_class(), err(), dest() {}
         explicit copy_iterator_class(const std::string&, const std::string&);
         
+        ~copy_iterator_class();
+        
         const tree_riterator_class& operator=(const copy_iterator_class&);
         tree_riterator_class operator++(int);
         
@@ -138,6 +140,8 @@ namespace fsys
     public:
         explicit delete_iterator_class() : tree_riterator_class(), err() {}
         explicit delete_iterator_class(const std::string&);
+        
+        ~delete_iterator_class();
         
         const tree_riterator_class& operator=(const delete_iterator_class&);
         tree_riterator_class operator++(int);
