@@ -487,7 +487,7 @@ namespace fsys
         }
     }
     
-    virtual tree_riterator_class::~tree_riterator_class()
+    tree_riterator_class::~tree_riterator_class()
     {
     }
     
@@ -641,7 +641,7 @@ invalid path!  Args can only be a folder.";
         }
     }
     
-    copy_iterator_class::~copy_iterator_class
+    copy_iterator_class::~copy_iterator_class()
     {
     }
     
