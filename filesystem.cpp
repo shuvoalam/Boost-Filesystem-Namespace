@@ -10,7 +10,7 @@
 namespace
 {
     bool is_error(const boost::system::error_code&);
-    fsys::result_data_boolean boost_funct(bool (*)(const boost::filesystem::path&,
+    fsys::result_data_boolean boost_bool_funct(bool (*)(const boost::filesystem::path&,
             boost::system::error_code&), const std::string&);
     boost::filesystem::directory_iterator init_directory_iter(const boost::filesystem::path&);
     fsys::result_data_boolean recurs_folder_copy(const std::string&, const std::string&);
@@ -18,6 +18,7 @@ namespace
     boost::filesystem::recursive_directory_iterator init_directory_rec_iterator(const boost::filesystem::path&);
     std::string parent_path(const std::string&);
     bool is_child(const std::string&, const std::string&);
+    std::string construct_new_path(const std::string&, const std::string&, const std::string&);
     
     
     
@@ -49,7 +50,9 @@ namespace
         {
             if(newpath.size() > from.size())
             {
-                newpath.erase(newpath.begin(), (newpath.begin() + (parent_path(from).size() + 1)));
+                short tempi(
+                        ((parent_path(from) == boost::filesystem::path("/").make_preferred().string()) ? 0 : 1));
+                newpath.erase(newpath.begin(), (newpath.begin() + parent_path(from).size() + tempi));
             }
         }
         newpath = (to + boost::filesystem::path("/").make_preferred().string() + newpath);
@@ -219,6 +222,7 @@ namespace
         fsys::tree_riterator_class it;
         std::vector<std::string> failed_paths;
         std::string temps;
+        bool (*f)(const boost::filesystem::path&, boost::system::error_code&);
         
         auto newpath = [&from, &to](const std::string& s)->std::string{
             std::string temps(s);
@@ -236,62 +240,100 @@ namespace
         {
             case true:
             {
-                res.value = true;
-                try
+                f = boost::filesystem::is_empty;
+                switch(boost_bool_funct(f, from).value)
                 {
-                    it = fsys::tree_riterator_class(from);
-                    while(!it.at_end())
+                    case true:
                     {
-                        if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value)
+                        boost::system::error_code ec;
+                        res.value = true;
+                        try
                         {
-                            if(!copy_directories(from, to, it.value()))
+                            boost::filesystem::copy_directory(boost::filesystem::path(from),
+                                    boost::filesystem::path(
+                                    (to + boost::filesystem::path("/").make_preferred().string() + 
+                                    boost::filesystem::path(from).filename().string())),
+                                    ec);
+                            if(is_error(ec))
                             {
-                                failed_paths.push_back(it.value());
+                                res.value = false;
+                                res.error = ec.message();
                             }
                         }
-                        if(fsys::is_file(it.value()).value || fsys::is_symlink(it.value()).value)
+                        catch(const std::exception& e)
                         {
-                            temps = parent_path(it.value());
-                            (void)copy_directories(from, to, temps);
-                            switch(fsys::is_folder(temps).value && !fsys::is_symlink(temps).value)
-                            {
-                                case true:
-                                {
-                                    try
-                                    {
-                                        temps = newpath(it.value());
-                                        if(!fsys::is_file(temps).value && !fsys::is_symlink(temps).value)
-                                        {
-                                            boost::filesystem::copy(it.value(), temps);
-                                        }
-                                    }
-                                    catch(...)
-                                    {
-                                        throw;
-                                    }
-                                }
-                                break;
-                                
-                                case false:
-                                {
-                                    failed_paths.push_back(it.value());
-                                }
-                                break;
-                                
-                                default:
-                                {
-                                    failed_paths.push_back(it.value());
-                                }
-                                break;
-                            }
+                            res.value = false;
+                            res.error = e.what();
                         }
-                        it++;
                     }
-                }
-                catch(...)
-                {
-                    res.value = false;
-                    throw;
+                    break;
+                    
+                    case false:
+                    {
+                        res.value = true;
+                        try
+                        {
+                            it = fsys::tree_riterator_class(from);
+                            while(!it.at_end())
+                            {
+                                if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value)
+                                {
+                                    if(!copy_directories(from, to, it.value()))
+                                    {
+                                        failed_paths.push_back(it.value());
+                                    }
+                                }
+                                else if(fsys::is_file(it.value()).value || fsys::is_symlink(it.value()).value)
+                                {
+                                    temps = parent_path(it.value());
+                                    (void)copy_directories(from, to, temps);
+                                    switch(fsys::is_folder(temps).value && !fsys::is_symlink(temps).value)
+                                    {
+                                        case true:
+                                        {
+                                            try
+                                            {
+                                                temps = newpath(it.value());
+                                                if(!fsys::is_file(temps).value && !fsys::is_symlink(temps).value)
+                                                {
+                                                    boost::filesystem::copy(it.value(), temps);
+                                                }
+                                            }
+                                            catch(...)
+                                            {
+                                                throw;
+                                            }
+                                        }
+                                        break;
+
+                                        case false:
+                                        {
+                                            failed_paths.push_back(it.value());
+                                        }
+                                        break;
+
+                                        default:
+                                        {
+                                            failed_paths.push_back(it.value());
+                                        }
+                                        break;
+                                    }
+                                }
+                                ++it;
+                            }
+                        }
+                        catch(...)
+                        {
+                            res.value = false;
+                            throw;
+                        }
+                    }
+                    break;
+                    
+                    default:
+                    {
+                    }
+                    break;
                 }
             }
             break;
@@ -299,8 +341,8 @@ namespace
             case false:
             {
                 res.value = false;
-                res.error = ("Error: args not valid.  Recursive folder copy\
-algorithm can only copy a folder into a folder!");
+                res.error = ("Error: args not valid.  Recursive folder copy \
+ algorithm can only copy a folder into a folder!");
             }
             break;
             
@@ -335,6 +377,36 @@ algorithm can only copy a folder into a folder!");
         }
         return ischild;
     }
+    
+    /* Creates a new path under a destination folder, given a root folder, a destination folder, 
+     and a path that is assumed to be under the root folder.
+     
+     Example:
+     path: "/home/username/documents/essays/an essay.txt"  
+     root: "/home/username/documents"
+     Destination: "/home/username"
+     
+     Result: /home/username/essays/an essay.txt" */
+    inline std::string construct_new_path(const std::string& root, const std::string& destination, 
+            const std::string& cur)
+    {
+        std::string newpath(cur);
+        if(cur.size() > root.size())
+        {
+            newpath.erase(newpath.begin(), (newpath.begin() + (cur.size() - (root.size() + 1))));
+            if(*newpath.begin() == boost::filesystem::path("/").make_preferred().string()[0])
+            {
+                newpath.erase(newpath.begin());
+            }
+            newpath = (destination + boost::filesystem::path("/").make_preferred().string() +
+                    newpath);
+        }
+        else newpath = root;
+        
+        return newpath;
+    }
+    
+    
 }
 
 
@@ -345,9 +417,9 @@ namespace fsys
             it(init_directory_iter(p)), end(), 
             is_good_path((is_folder(p.string()).value && !(is_symlink(p.string()).value)))
     {
-        if(this->is_good_path)
+        if(this->is_good_path && !this->at_end())
         {
-            if(this->it->path().string() == s) (*this)++;
+            if(this->it->path().string() == s) ++(*this);
         }
     }
     
@@ -368,7 +440,7 @@ namespace fsys
                 this->it = init_directory_iter(this->p);
                 if(!t.at_end())
                 {
-                    while((this->it != this->end) && (this->it->path() != t.it->path())) (*this)++;
+                    while((this->it != this->end) && (this->it->path() != t.it->path())) ++(*this);
                 }
             }
             catch(...)
@@ -379,7 +451,7 @@ namespace fsys
         return *this;
     }
     
-    tree_iterator_class tree_iterator_class::operator++(int i)
+    tree_iterator_class tree_iterator_class::operator++()
     {
         if(this->is_good_path)
         {
@@ -410,7 +482,7 @@ namespace fsys
                 tempit = *this;
                 while(!tempit.at_end())
                 {
-                    tempit++;
+                    ++tempit;
                     count++;
                 }
             }
@@ -436,7 +508,7 @@ namespace fsys
                     tempit = tree_iterator_class(this->p.string());
                     while((tempit.it->path() != this->it->path()) && !tempit.at_end())
                     {
-                        tempit++;
+                        ++tempit;
                         count++;
                     }
                 }
@@ -482,7 +554,7 @@ namespace fsys
         {
             if((this->it != this->end) && (this->it->path().string() == s))
             {
-                (*this)++;
+                tree_riterator_class::operator++();
             }
         }
     }
@@ -502,21 +574,21 @@ namespace fsys
             
             if((this->it != this->end) && (this->it->path() == this->p))
             {
-                tree_riterator_class::operator++(1);
+                tree_riterator_class::operator++();
             }
             
             if(!t.at_end() && (t.it->path() != t.p))
             {
                 while((this->it != this->end) && (this->it->path() != t.it->path()))
                 {
-                    tree_riterator_class::operator++(1);
+                    tree_riterator_class::operator++();
                 }
             }
         }
         return *this;
     }
     
-    tree_riterator_class tree_riterator_class::operator++(int i)
+    tree_riterator_class tree_riterator_class::operator++()
     {
         if(this->is_good_path)
         {
@@ -559,7 +631,7 @@ namespace fsys
                 //while(!tempit.at_end() && (tempit.it->path() != this->it->path())) tempit++;
                 while(!tempit.at_end())
                 {
-                    tempit++;
+                    ++tempit;
                     count++;
                 }
             }
@@ -581,7 +653,7 @@ namespace fsys
                 tree_riterator_class tempit(this->p.string());
                 while((tempit.it != tempit.end) && (tempit.it->path().string() != this->it->path().string()))
                 {
-                    tempit++;
+                    ++tempit;
                     tempi++;
                 }
             }
@@ -639,13 +711,16 @@ invalid path!  Args can only be a folder.";
         {
             throw;
         }
+        if(boost::filesystem::is_empty(this->p)) this->err = fsys::fcopy(from, to);
     }
     
     copy_iterator_class::~copy_iterator_class()
     {
     }
     
-    tree_riterator_class copy_iterator_class::operator++(int x)
+    /* Copies the path that the iterator currently points to, and then it increments
+     the iterator. */
+    tree_riterator_class copy_iterator_class::operator++()
     {
         this->err.value = false;
         this->err.error.erase();
@@ -669,15 +744,24 @@ invalid path!  Args can only be a folder.";
                         this->err.error = "Failed copy directories";
                     }
                 }
-                if(is_symlink(this->value()).value || is_file(this->value()).value)
+                else if(is_symlink(this->value()).value || is_file(this->value()).value)
                 {
                     try
                     {
+                        //copy the parent path of the file if it isn't there:
                         switch(parent_path(this->value()) == this->p.string())
                         {
                             case false:
                             {
-                                this->err.value = copy_directories(this->p.string(), this->dest, parent_path(this->value()));
+                                std::string temps(construct_new_path(this->p.string(), 
+                                        this->dest, parent_path(this->value())));
+                                
+                                //only copy the parent path if it doesn't exist
+                                if(!is_folder(temps).value)
+                                {
+                                    this->err.value = copy_directories(this->p.string(), this->dest, parent_path(this->value()));
+                                }
+                                else this->err.value = true;
                             }
                             break;
                             
@@ -699,6 +783,8 @@ invalid path!  Args can only be a folder.";
                             }
                             break;
                         }
+                        
+                        //did we succeed in copying the parent path of the file?
                         switch(this->err.value)
                         {
                             case true:
@@ -706,7 +792,11 @@ invalid path!  Args can only be a folder.";
                                 std::string temps(this->value());
                                 if(temps.size() > this->p.string().size())
                                 {
-                                    temps.erase(temps.begin(), (temps.begin() + (parent_path(this->p.string()).size() + 1)));
+                                    if(parent_path(this->p.string()).size() < 2)
+                                    {
+                                        temps.erase(temps.begin(), (temps.begin() + parent_path(this->p.string()).size()));
+                                    }
+                                    else temps.erase(temps.begin(), (temps.begin() + (parent_path(this->p.string()).size() + 1)));
                                     temps = (this->dest + boost::filesystem::path("/").make_preferred().string() +
                                             temps);
                                 }
@@ -750,7 +840,7 @@ invalid path!  Args can only be a folder.";
         {
             if(!this->at_end())
             {
-                tree_riterator_class::operator++(x);
+                tree_riterator_class::operator++();
             }
         }
         catch(...)
@@ -770,6 +860,16 @@ invalid path!  Args can only be a folder.";
         }
         return *this;
     }
+    
+    /* increments the iterator without copying the path that the iterator 
+     * points to. */
+    void copy_iterator_class::skip()
+    {
+        if(this->it != this->end)
+        {
+            tree_riterator_class::operator++();
+        }
+    }
                     
     /**=========================================================================
      * =========================================================================
@@ -778,6 +878,7 @@ invalid path!  Args can only be a folder.";
     delete_iterator_class::delete_iterator_class(const std::string& s) : 
                 tree_riterator_class(s), err()
     {
+        boost::system::error_code ec;
         try
         {
             if(!fsys::is_folder(s).value || (fsys::is_folder(s).value && fsys::is_symlink(s).value))
@@ -789,6 +890,10 @@ can not construct object with invalid pathname!  Path must be a folder!";
         catch(...)
         {
             throw;
+        }
+        if(boost::filesystem::is_empty(this->p, ec))
+        {
+            this->err = fsys::fdelete(this->p.string());
         }
     }
     
@@ -806,7 +911,14 @@ can not construct object with invalid pathname!  Path must be a folder!";
         return *this;
     }
     
-    tree_riterator_class delete_iterator_class::operator++(int i)
+    /* Deletes the path that the iterator currently points to, and then increments
+     the iterator.  It will not delete empty folders, so this operator will reset
+     the iterator (as if re-initialized) once the end has been reached, and keep 
+     doing so until everything is deleted.  
+     aka:  it will delete the contents of the folders, before deleting
+     the folders. There is no way to track the number of passes (at present) this
+     operation takes, but for a folder with contents, 2 passes is minimum.*/
+    tree_riterator_class delete_iterator_class::operator++()
     {
         this->err.value = false;
         this->err.error.erase();
@@ -862,7 +974,7 @@ ity of path could not be established.  No action could be taken.");
             /* Move on to the next path */
             try
             {
-                tree_riterator_class::operator++(1);
+                tree_riterator_class::operator++();
                 if(this->at_end())
                 {
                     boost::system::error_code ec;
@@ -902,6 +1014,16 @@ ity of path could not be established.  No action could be taken.");
         return *this;
     }
     
+    /* Increments the iterator without deleting the path that the iterator
+     currently points to. */
+    void delete_iterator_class::skip()
+    {
+        if(this->it != this->end)
+        {
+            tree_riterator_class::operator++();
+        }
+    }
+    
     
 }
 
@@ -921,7 +1043,7 @@ namespace fsys
             {
                 case true:
                 {
-                    if(fsys::is_file(from).value)
+                    if(fsys::is_file(from).value && !fsys::is_symlink(from).value)
                     {
                         try
                         {
@@ -942,7 +1064,7 @@ namespace fsys
                             res.value = false;
                         }
                     }
-                    else if(fsys::is_folder(from).value)
+                    else if(fsys::is_folder(from).value && !is_symlink(from).value)
                     {
                         try
                         {
@@ -958,7 +1080,11 @@ namespace fsys
                         try
                         {
                             boost::filesystem::copy_symlink(boost::filesystem::path(from),
-                                    boost::filesystem::path(to), err);
+                                    boost::filesystem::path(to + 
+                                    boost::filesystem::path("/").make_preferred().string() + 
+                                    boost::filesystem::path(from).filename().string()),
+                                    err);
+                            res.value = true;
                         }
                         catch(...)
                         {
@@ -1042,6 +1168,7 @@ namespace fsys
         return res;
     }
     
+    /* rename uses full paths */
     result_data_boolean frename(const std::string& from, const std::string& to)
     {
         result_data_boolean res;

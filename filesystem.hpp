@@ -73,7 +73,7 @@ namespace fsys
         ~tree_iterator_class();
         
         const tree_iterator_class& operator=(const tree_iterator_class&);
-        tree_iterator_class operator++(int);
+        tree_iterator_class operator++();
         
         unsigned int count_from_end() const;
         unsigned int count_from_beg() const;
@@ -97,7 +97,7 @@ namespace fsys
         virtual ~tree_riterator_class();
         
         virtual const tree_riterator_class& operator=(const tree_riterator_class&);
-        virtual tree_riterator_class operator++(int);
+        virtual tree_riterator_class operator++();
         
         unsigned int count_from_end();
         unsigned int count_from_beg();
@@ -122,7 +122,8 @@ namespace fsys
         ~copy_iterator_class();
         
         const tree_riterator_class& operator=(const copy_iterator_class&);
-        tree_riterator_class operator++(int);
+        tree_riterator_class operator++();
+        void skip();
         
         result_data_boolean err;
         
@@ -144,7 +145,8 @@ namespace fsys
         ~delete_iterator_class();
         
         const tree_riterator_class& operator=(const delete_iterator_class&);
-        tree_riterator_class operator++(int);
+        tree_riterator_class operator++();
+        void skip();
         
         
         result_data_boolean err;
