@@ -1,0 +1,3 @@
+#!/bin/bash
+
+clear && rm -rf ./build/* && cd ./build && clear && cmake -G "Unix Makefiles" .. && clear && make clean && make

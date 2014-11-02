@@ -1,0 +1,4 @@
+#!/bin/bash
+
+#makes a "project"  (all it does is run cmake on the build folder after cleaning it)
+clear && rm -rf ./build/* && cd ./build && clear && cmake -G "Unix Makefiles" .. && clear && make clean && make
