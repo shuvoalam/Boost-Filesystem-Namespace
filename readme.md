@@ -28,4 +28,18 @@ This was made to work with Windows and Linux.  Windows has yet to be tested.  Li
 - Uses the boost library.
 
 ---
-This is still not a finished product.  I would like to perform more testing on windows and inux with it.  Right now, it is functional on Linux.
+This is still not a finished product.  I would like to perform more testing on windows and inux with it.  Right now, it is functional on Linux. 
+ 
+--- 
+##Recent Modifications: 
+ 
+-  Fixed some bugs 
+-  Added more complete exception handling: the file and line the error occured is now provided in all exceptions. 
+-  Unit testing has begun. 
+ 
+--- 
+ 
+###Project Plans: 
+ 
+-  Provide unit tests for (almost) every function.  I want to provide complete testing to ensure there are no problems encountered during use. 
+-  Clean up the code and make it more efficient. 
