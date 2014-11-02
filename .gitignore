@@ -7,3 +7,4 @@
 *.codelite
 *test_folder
 *.json
+*setup_test
