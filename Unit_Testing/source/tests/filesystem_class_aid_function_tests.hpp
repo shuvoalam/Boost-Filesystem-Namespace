@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
@@ -30,6 +31,22 @@
 
 
 class test_fixture_class;
+
+
+class test_fixture_class
+{
+public:
+    explicit test_fixture_class()
+    {
+        system("/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/setup_test");
+    }
+    
+    ~test_fixture_class(){}
+    
+private:
+    
+    
+};
 
 namespace
 {
@@ -58,8 +75,8 @@ namespace
     
     
 #if FILESYSTEM_USE_RUNTIME_ERRORS == true
-    #define ethrow(MSG) throw std::runtime_error(("EXCEPTION THROWN: \"" + std::string(__FILE__)\
-+ "\"  @ Line " + itoa(__LINE__) + ": " + std::string(MSG)))
+    #define ethrow(MSG) throw std::runtime_error(("EXCEPTION THROWN: \n\"" + std::string(__FILE__)\
++ "\"\n @ Line " + itoa(__LINE__) + ": \n" + std::string(MSG)))
 
 #else
     #define ethrow(MSG)
@@ -78,25 +95,29 @@ namespace
         return temps;
     }
     
-    /* Copies a set of sub-folders whether they exist or not. */
+    /* Copies a set of sub-folders into a target folder whether they exist or not. */
     inline bool copy_directories(const std::string& from, const std::string& to, const std::string& source)
     {
+        if(!is_child(source, from) && (from != source))
+        {
+            ethrow("copy_directories: source is not a child of from.");
+        }
         boost::filesystem::path path_from(from), path_to(to);
         boost::system::error_code err;
-        std::string newpath(source), temps, newfrom;
+        std::string new_path(source), temps, newfrom;
         int levels(0);
         bool temp_b(true);
         
         /* Create the new path in the 'to' folder. */
         {
-            if(newpath.size() > from.size())
+            if(new_path.size() >= from.size())
             {
                 short tempi(
                         ((parent_path(from) == boost::filesystem::path("/").make_preferred().string()) ? 0 : 1));
-                newpath.erase(newpath.begin(), (newpath.begin() + parent_path(from).size() + tempi));
+                new_path.erase(new_path.begin(), (new_path.begin() + parent_path(from).size() + tempi));
             }
         }
-        newpath = (to + boost::filesystem::path("/").make_preferred().string() + newpath);
+        new_path = (to + boost::filesystem::path("/").make_preferred().string() + new_path);
         
         try
         {
@@ -122,16 +143,16 @@ namespace
             ethrow(e.what());
         }
         
-        if(source != from)
+        if((source != from) && fsys::is_folder(source).value && !fsys::is_symlink(source).value)
         {
-            while(!fsys::is_folder(newpath).value && temp_b)
+            while(!fsys::is_folder(new_path).value && temp_b)
             {
-                temps = newpath;
+                temps = new_path;
                 try
                 {
                     /* Extract the next folder we can copy: */
                     {
-                        boost::filesystem::path p(temps), prev_p(newpath);
+                        boost::filesystem::path p(temps), prev_p(new_path);
                         boost::system::error_code err;
                         levels = 0;
                         if(temps.size() > to.size())
@@ -180,8 +201,8 @@ namespace
         {
             temp_b = (
                     !is_error(err) && 
-                    boost::filesystem::is_directory(boost::filesystem::path(newpath), err) && 
-                    !boost::filesystem::is_symlink(newpath));
+                    boost::filesystem::is_directory(boost::filesystem::path(new_path), err) && 
+                    !boost::filesystem::is_symlink(new_path));
         }
         catch(const std::exception& e)
         {
@@ -192,7 +213,7 @@ namespace
     
     inline bool is_error(const boost::system::error_code& err)
     {
-        return !(!err);
+        return (err != boost::system::errc::success);
     }
     
     inline fsys::result_data_boolean boost_bool_funct(bool (*f)(const boost::filesystem::path&, 
@@ -213,6 +234,7 @@ namespace
         if(is_error(err))
         {
             result.error = err.message();
+            result.value = false;
         }
         return result;
     }
@@ -307,6 +329,7 @@ namespace
                                     ec);
                             if(is_error(ec))
                             {
+                                ethrow(ec.message());
                                 res.value = false;
                                 res.error = ec.message();
                             }
@@ -317,7 +340,7 @@ namespace
                             res.error = e.what();
                             if((sizeof e.what()) == 0)
                             {
-                                ethrow("Emtpy error message thrown here!");
+                                ethrow("Empty error message thrown here!");
                             }
                         }
                     }
@@ -397,7 +420,8 @@ namespace
             {
                 res.value = false;
                 res.error = ("Error: args not valid.  Recursive folder copy \
- algorithm can only copy a folder into a folder!");
+ algorithm can only copy a folder into a folder!\n\nFrom = \"" + from + "\"\n\n\
+ To = \"" + to + "\"");
             }
             break;
             
@@ -495,25 +519,97 @@ unknown error occured!";
         return res;
     }
     
+    inline bool file_is_type(const std::string& s, const boost::filesystem::file_type& t)
+    {
+        using boost::filesystem::status;
+        using boost::filesystem::path;
+        using boost::filesystem::exists;
+        
+        boost::system::error_code ec;
+        bool b(false);
+        
+        if(exists(s, ec))
+        {
+            try
+            {
+                b = (status(path(s), ec).type() == t);
+                if(is_error(ec))
+                {
+                    ethrow(ec.message());
+                }
+            }
+            catch(const std::exception& e)
+            {
+                ethrow(e.what());
+            }
+        }
+        return b;
+    }
+    
     
 }
 
 
-class test_fixture_class
+/* anonymous test functions: */
+namespace
 {
-public:
-    explicit test_fixture_class()
+    std::string test_folder();
+    std::string dest_folder();
+    bool test_copy_directories(const std::string&);
+    std::string parent_of_test_folder();
+    std::string pick_random_child(const std::string&);
+    unsigned long count_contents_of_folder(const std::string&);
+    
+    
+    
+    inline std::string test_folder()
     {
-        system("/mnt/ENCRYPTED/C++/Finished_Projects/filesystem_namespace/Unit_Testing/setup_test");
+        return "/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/build/test_folder";
     }
     
-    ~test_fixture_class(){}
+    inline std::string dest_folder()
+    {
+        return "/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/build/test_folder/DESTINATION OF COPY TEST";
+    }
+    
+    inline std::string parent_of_test_folder()
+    {
+        return "/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/build";
+    }
+    
+    inline bool test_copy_directories(const std::string& subfolder)
+    {
+        test_fixture_class reset;
+        std::string new_path(newpath(test_folder(), dest_folder(), subfolder));
+        if(fsys::create_folder(dest_folder()).value)
+        {
+            return (copy_directories(test_folder(), dest_folder(), subfolder) && fsys::is_folder(new_path).value && !fsys::is_symlink(new_path).value);
+        }
+        ethrow("test: could not create the test folder!");
+    }
+    
+    inline unsigned long count_contents_of_folder(const std::string& folder)
+    {
+        unsigned long count(0);
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it) count++;
+        return count;
+    }
+    
+    inline std::string pick_random_child(const std::string& folder)
+    {
+        unsigned long child(rand() % count_contents_of_folder(folder)), iteration(0);
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it, ++iteration)
+        {
+            if(iteration == child) return it.value();
+        }
+        return "";
+    }
     
     
-private:
-    
-    
-};
+}
+
+
+
 
 TEST_FIXTURE(test_fixture_class, is_error_test)
 {
@@ -522,11 +618,9 @@ TEST_FIXTURE(test_fixture_class, is_error_test)
     
     path p("test_folder");
     error_code ec;
-    bool tempb(false);
     
     boost::filesystem::remove(p, ec);
-    tempb = is_error(ec);
-    CHECK(tempb);
+    CHECK(is_error(ec));
     CHECK(ec != boost::system::errc::success);
 }
 
@@ -542,6 +636,77 @@ TEST_FIXTURE(test_fixture_class, init_recursive_directory_iterator_test_case)
     CHECK(boost::filesystem::recursive_directory_iterator("test_folder")->path() == it->path());
 }
 
-//cur_pos recurse_folder_copy test
+TEST_FIXTURE(test_fixture_class, recurse_folder_copy_test_case)
+{
+    std::string test_folder(boost::filesystem::current_path().string() + "/test_folder"), 
+                    dest_folder(test_folder + "/DESTINATION OF COPY TEST");
+    std::vector<std::string> subfolders;
+    subfolders.push_back("empty folder");
+    subfolders.push_back("folder of files");
+    subfolders.push_back("folder of folders");
+    subfolders.push_back("folder of symlinks");
+    subfolders.push_back("mixed folder");
+    
+    fsys::create_folder(dest_folder);
+    CHECK(boost::filesystem::exists(boost::filesystem::path(dest_folder)));
+    if(!boost::filesystem::exists(boost::filesystem::path(dest_folder))) ethrow("Could not create the destination folder for the copy test!");
+    
+    for(std::vector<std::string>::const_iterator it = subfolders.begin(); it != subfolders.end(); ++it)
+    {
+        {
+            fsys::result_data_boolean tempres(recurs_folder_copy((test_folder + "/" + *it), dest_folder));
+            if(!tempres.value)
+            {
+                ethrow(("Error returned: " + tempres.error));
+            }
+        }
+        CHECK(boost::filesystem::exists(boost::filesystem::path((dest_folder + "/" + *it))));
+    }
+}
+
+TEST_FIXTURE(test_fixture_class, copy_directories_test_case)
+{
+    bool tempb(false);
+    tempb = test_copy_directories(test_folder() + "/nothing/whatever");
+    CHECK(!tempb);
+    tempb = test_copy_directories(test_folder() + "/folder of files");
+    CHECK(tempb);
+    tempb = test_copy_directories(test_folder() + "/folder of folders/test folder 3/test folder 1/test folder 1");
+    CHECK(tempb);
+    tempb = test_copy_directories(test_folder());
+    CHECK(tempb);
+    //the next test is supposed to fail with an exception for the programmer:
+    /*tempb = test_copy_directories(parent_path(test_folder()));
+    CHECK(!tempb);*/
+}
+
+TEST_FIXTURE(test_fixture_class, parent_path_test_case)
+{
+    /*this test may have to be modified for windows users.  In that case, the 
+     * expected result of operating on the "root" (aka: "C:\") would be an empty string. */
+    std::string parent(parent_path(test_folder()));
+    CHECK(parent == parent_of_test_folder());
+    parent = parent_path("/");
+    CHECK(parent.empty());
+    parent = test_folder();
+    for(unsigned int x = 0; x < 50; x++) parent = parent_path(parent);
+    CHECK(parent.empty());
+}
+
+TEST_FIXTURE(test_fixture_class, is_child_test_case)
+{
+    for(unsigned int x = 0; x < 2000; x++)
+    {
+        CHECK(is_child(pick_random_child(test_folder()), test_folder()));
+        CHECK(!is_child(test_folder(), pick_random_child(test_folder())));
+    }
+}
+
+TEST_FIXTURE(test_fixture_class, newpath_test_case_one)
+{
+    //todo finish test for newpath
+}
+
+//test construct_new_path
 
 #endif

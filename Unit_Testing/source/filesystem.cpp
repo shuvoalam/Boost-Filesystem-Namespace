@@ -188,7 +188,7 @@ namespace
     
     inline bool is_error(const boost::system::error_code& err)
     {
-        return (err == boost::system::errc::success);
+        return (err != boost::system::errc::success);
     }
     
     inline fsys::result_data_boolean boost_bool_funct(bool (*f)(const boost::filesystem::path&, 
@@ -209,6 +209,7 @@ namespace
         if(is_error(err))
         {
             result.error = err.message();
+            result.value = false;
         }
         return result;
     }
@@ -303,6 +304,7 @@ namespace
                                     ec);
                             if(is_error(ec))
                             {
+                                ethrow(ec.message());
                                 res.value = false;
                                 res.error = ec.message();
                             }
@@ -313,7 +315,7 @@ namespace
                             res.error = e.what();
                             if((sizeof e.what()) == 0)
                             {
-                                ethrow("Emtpy error message thrown here!");
+                                ethrow("Empty error message thrown here!");
                             }
                         }
                     }
@@ -393,7 +395,8 @@ namespace
             {
                 res.value = false;
                 res.error = ("Error: args not valid.  Recursive folder copy \
- algorithm can only copy a folder into a folder!");
+ algorithm can only copy a folder into a folder!\n\nFrom = \"" + from + "\"\n\n\
+ To = \"" + to + "\"");
             }
             break;
             
@@ -491,6 +494,33 @@ unknown error occured!";
         return res;
     }
     
+    inline bool file_is_type(const std::string& s, const boost::filesystem::file_type& t)
+    {
+        using boost::filesystem::status;
+        using boost::filesystem::path;
+        using boost::filesystem::exists;
+        
+        boost::system::error_code ec;
+        bool b(false);
+        
+        if(exists(s, ec))
+        {
+            try
+            {
+                b = (status(path(s), ec).type() == t);
+                if(is_error(ec))
+                {
+                    ethrow(ec.message());
+                }
+            }
+            catch(const std::exception& e)
+            {
+                ethrow(e.what());
+            }
+        }
+        return b;
+    }
+    
     
 }
 
@@ -502,10 +532,7 @@ namespace fsys
             it(init_directory_iter(p)), end(), 
             is_good_path((is_folder(p.string()).value && !(is_symlink(p.string()).value)))
     {
-        if(s.find(boost::filesystem::root_path().string().c_str()) != 0)
-        {
-            ethrow("[PROGRAMMING ERROR]: can not pass non-absolute path to iterator!");
-        }
+        //todo add check for root_path here
         if(this->is_good_path && !this->at_end())
         {
             if(this->it->path().string() == s) ++(*this);
@@ -639,10 +666,7 @@ namespace fsys
             end(), 
             is_good_path((is_folder(p.string()).value && !is_symlink(p.string()).value))
     {
-        if(s.find(boost::filesystem::root_path().string().c_str()) != 0)
-        {
-            ethrow("[PROGRAMMING ERROR]: can not pass non-absolute path to iterator!");
-        }
+        //todo add check for root path here
         if(this->is_good_path)
         {
             if((this->it != this->end) && (this->it->path().string() == s))
