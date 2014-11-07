@@ -22,11 +22,11 @@
 
 namespace fsys
 {
-    struct result_data_boolean;
-    class tree_iterator_class;
-    class tree_riterator_class;
-    class copy_iterator_class;
-    class delete_iterator_class;
+    typedef struct result_data_boolean result_data_boolean;
+    typedef class tree_iterator_class tree_iterator_class;
+    typedef class tree_riterator_class tree_riterator_class;
+    typedef class copy_iterator_class copy_iterator_class;
+    typedef class delete_iterator_class delete_iterator_class;
     
     
     result_data_boolean fdelete(const std::string&);
@@ -44,7 +44,7 @@ namespace fsys
     result_data_boolean copy_folders(const std::string&, const std::string&, const std::string&);
     
     
-    struct result_data_boolean
+    typedef struct result_data_boolean
     {
         explicit result_data_boolean()
         {
@@ -80,10 +80,10 @@ namespace fsys
         
         bool value;
         std::string error;
-    };
+    } result_data_boolean;
     
     /* Iterators start with the first element inside the folder.*/
-    class tree_iterator_class
+    typedef class tree_iterator_class
     {
     public:
         explicit tree_iterator_class(const std::string&);
@@ -104,10 +104,10 @@ namespace fsys
         boost::filesystem::path p;
         boost::filesystem::directory_iterator it, end;
         bool is_good_path;
-    };
+    } tree_iterator_class;
     
     /* Iterators start with the first element inside the folder.*/
-    class tree_riterator_class
+    typedef class tree_riterator_class
     {
     public:
         explicit tree_riterator_class(const std::string&);
@@ -128,11 +128,11 @@ namespace fsys
         boost::filesystem::path p;
         boost::filesystem::recursive_directory_iterator it, end;
         bool is_good_path;
-    };
+    } tree_riterator_class;
     
     
     
-    class copy_iterator_class : public tree_riterator_class
+    typedef class copy_iterator_class : public tree_riterator_class
     {
     public:
         explicit copy_iterator_class() : tree_riterator_class(), err(), dest() {}
@@ -152,10 +152,10 @@ namespace fsys
         using tree_riterator_class::it;
         using tree_riterator_class::end;
         using tree_riterator_class::is_good_path;
-    };
+    } copy_iterator_class;
     
     
-    class delete_iterator_class : public tree_riterator_class
+    typedef class delete_iterator_class : public tree_riterator_class
     {
     public:
         explicit delete_iterator_class() : tree_riterator_class(), err() {}
@@ -177,7 +177,7 @@ namespace fsys
         
         void delete_path(const std::string&);
         
-    };
+    } delete_iterator_class;
     
     /* Returns a string that represents a group of characters that should
      never appear in a filename on Windows. */
