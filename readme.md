@@ -7,7 +7,7 @@ I have always found it tedious to write code to recursively copy a folder, or de
 
 Provided in this header/.cpp combo are:
 
-- **complete error reporting**: boost exceptions are all forwarded, and any other errors are checked for.  Any function that returns a result_data_boolean will double-check the results to make sure the operation was a success before returning anything.
+- **complete error reporting**: boost exceptions are all forwarded, and any other errors are checked for.  Any function that returns a result_data_boolean will double-check the results to make sure the operation was a success before returning anything.  This is because the effect we expect the operation to have does not reflect the return values of some of the functions.  
 - **tree_iterator_class**: iterates through a folder's most shallow level.
 - **tree_riterator_class**: recursively iterates through a folder's contents.
 - **copy_iterator_class : public tree_ritetator_class**: A recursive iterator that operates the same way in every respect to it's base class, except that it also copies one of the contents of a source folder to a destination folder upon each iteration.
@@ -23,9 +23,12 @@ Provided in this header/.cpp combo are:
 ---
 
 ##Specs:  
-This was made to work with Windows and Linux.  Windows has yet to be tested.  Linux has been tested.
-
-- Uses the boost library.
+This was made to work with Windows and Linux.  Windows has yet to be tested.  Linux has been tested.  
+  
+Dependencies:  
+ 
+-  Boost ( http://www.boost.org/ ) 
+-  This project uses C++98, and C99
 
 ---
 This is still not a finished product.  I would like to perform more testing on windows and inux with it.  Right now, it is functional on Linux. 
@@ -33,9 +36,7 @@ This is still not a finished product.  I would like to perform more testing on w
 --- 
 ##Recent Modifications: 
  
--  Fixed some bugs 
--  Added more complete exception handling: the file and line the error occured is now provided in all exceptions. 
--  Unit testing has begun. 
+-  Added unit tests for the anonymous namespace in filesystem.cpp. 
  
 --- 
  
