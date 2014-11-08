@@ -17,19 +17,23 @@
 #endif
 #endif
 
-
 #include <unittest++/UnitTest++.h>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <vector>
 #include <iostream>
-#include <string>
 #include <boost/filesystem.hpp>
 #include <utility>
 
 #include "filesystem.hpp"
 #include "random_test_data.hpp"
+
+
+#define unittest_TEST_FOLDER "/mnt/ENCRYPTED/C++/Finished_Projects/filesystem_namespace/Unit_Testing/build/test_folder"
+#define unittest_DEST (std::string(unittest_TEST_FOLDER) + "/DESTINATION OF COPY TEST")
+#define unittest_PARENT_OF_TEST_FOLDER "/mnt/ENCRYPTED/C++/Finished_Projects/filesystem_namespace/Unit_Testing/build"
 
 
 typedef class test_fixture_class test_fixture_class;
@@ -38,13 +42,20 @@ typedef class test_fixture_class test_fixture_class;
 typedef class test_fixture_class
 {
 public:
-    explicit test_fixture_class()
+    explicit test_fixture_class() : test_folder(unittest_TEST_FOLDER), 
+                    dest_folder(unittest_DEST), 
+                    parent(unittest_PARENT_OF_TEST_FOLDER)
     {
-        system("/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/setup_test");
+        /* attn make sure that this is set up properly.  You should make a test folder
+         *  and write a script to copy it to the build where it can be safely modified 
+         * and worked with by the program. */
+        system("../setup_test");
     }
     
     ~test_fixture_class(){}
     
+    std::string test_folder, dest_folder, parent;
+
 private:
     
     
@@ -72,7 +83,6 @@ namespace
     boost::filesystem::recursive_directory_iterator init_directory_rec_iterator(const boost::filesystem::path&);
     std::string parent_path(const std::string&);
     bool is_child(const std::string&, const std::string&);
-    std::string construct_new_path(const std::string&, const std::string&, const std::string&);
     fsys::result_data_boolean is_empty(const std::string&);
     std::pair<std::string, std::string> split_subdir(const std::string&, const std::string&);
     std::string dive(const unsigned int&, const std::string&);
@@ -446,34 +456,6 @@ namespace
         return ischild;
     }
     
-    /* Creates a new path under a destination folder, given a root folder, a destination folder, 
-     and a path that is assumed to be under the root folder.
-     
-     Example:
-     cur: "/home/username/documents/essays/an essay.txt"  
-     root: "/home/username/documents"
-     Destination: "/home/username"
-     
-     Result: /home/username/essays/an essay.txt" */
-    inline std::string construct_new_path(const std::string& root, const std::string& destination, 
-            const std::string& cur)
-    {
-        std::string new_path(cur);
-        if(cur.size() > root.size())
-        {
-            new_path.erase(new_path.begin(), (new_path.begin() + (cur.size() - (root.size() + 1))));
-            if(*new_path.begin() == boost::filesystem::path("/").make_preferred().string()[0])
-            {
-                new_path.erase(new_path.begin());
-            }
-            new_path = (destination + boost::filesystem::path("/").make_preferred().string() +
-                    new_path);
-        }
-        else new_path = root;
-        
-        return new_path;
-    }
-    
     inline fsys::result_data_boolean is_empty(const std::string& s)
     {
         using fsys::is_folder;
@@ -537,134 +519,15 @@ unknown error occured!";
 }
 
 
-/* anonymous test functions: */
+//forward decs for test functions
 namespace
 {
-    typedef struct copy_test_data copy_test_data;
-    
     bool test_copy_directories(const std::string&);
-    std::string parent_of_test_folder();
     std::string random_child(const std::string&);
     unsigned long count_contents_of_folder(const std::string&);
-    copy_test_data const_copy_test_data();
     std::string random_child_folder(const std::string&);
     
-    
-    //copy test data.
-    typedef struct copy_test_data
-    {
-        explicit copy_test_data();
-        explicit copy_test_data(const std::string&, const std::string&);
-        
-        copy_test_data& operator=(const copy_test_data&);
-        bool operator==(const copy_test_data&) const;
-        bool operator!=(const copy_test_data&) const;
-        
-        std::string source, dest;
-    } copy_test_data;
-    
-    copy_test_data::copy_test_data(){}
-    
-    copy_test_data::copy_test_data(const std::string& s1,
-                    const std::string& s2)
-    {
-        this->source = s1;
-        this->dest = s2;
-    }
-    
-    copy_test_data& copy_test_data::operator=(const copy_test_data& d)
-    {
-        if(this != &d)
-        {
-            this->source = d.source;
-            this->dest = d.dest;
-        }
-        return *this;
-    }
-    
-    bool copy_test_data::operator==(const copy_test_data& d) const
-    {
-        return ((this->source == d.source) && 
-                    (this->dest == d.dest));
-    }
-    
-    bool copy_test_data::operator!=(const copy_test_data& d) const
-    {
-        return ((this->source != d.source) && 
-                    (this->dest != d.dest));
-    }
-    
-    
-    inline copy_test_data const_copy_test_data()
-    {
-        return copy_test_data(
-            "/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/build/test_folder",
-            "/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/build/test_folder/DESTINATION OF COPY TEST");
-    }
-    
-    inline std::string parent_of_test_folder()
-    {
-        return "/mnt/ENCRYPTED/C++_Dev/Current_Projects/filesystem_namespace/Unit_Testing/build";
-    }
-    
-    inline bool test_copy_directories(const std::string& subfolder)
-    {
-        test_fixture_class reset;
-        copy_test_data data(const_copy_test_data());
-        std::string new_path(data.dest + fsys::pref_slash() + 
-                        boost::filesystem::path(data.source).filename().string() + 
-                        split_subdir(data.source, subfolder).second);
-        if(fsys::create_folder(data.dest).value)
-        {
-            return (copy_directories(data.source, data.dest, subfolder) && 
-                            fsys::is_folder(new_path).value && 
-                            !fsys::is_symlink(new_path).value);
-        }
-        ethrow("test: could not create the test folder: \"" + data.dest + "\"");
-    }
-    
-    inline unsigned long count_contents_of_folder(const std::string& folder)
-    {
-        unsigned long count(0);
-        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it) count++;
-        return count;
-    }
-    
-    inline std::string random_child(const std::string& folder)
-    {
-        unsigned long child(rand() % count_contents_of_folder(folder)), iteration(0);
-        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it, ++iteration)
-        {
-            if(iteration == child) return it.value();
-        }
-        return "";
-    }
-    
-    inline std::string random_child_folder(const std::string& folder)
-    {
-        unsigned int element, count(0);
-        
-        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it)
-        {
-            if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value) ++count;
-        }
-        element = rdata::random_number(0, count);
-        count = 0;
-        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it)
-        {
-            if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value)
-            {
-                ++count;
-                if(count == element) return it.value();
-            }
-        }
-        return folder;
-    }
-    
-    
 }
-
-
 
 
 TEST_FIXTURE(test_fixture_class, is_error_test)
@@ -726,40 +589,37 @@ TEST(dive_test_case)
         using namespace std;
         
         cout<< endl<< endl<< string(70, '-')<< endl<< "Testing Dive: "<< endl<< endl;
-        for(unsigned int x = 0; x < 20; x++) cout<< "level "<< x<< ":  "<< dive(x, const_copy_test_data().source)<< endl;
+        for(unsigned int x = 0; x < 20; x++) cout<< "level "<< x<< ":  "<< dive(x, unittest_TEST_FOLDER)<< endl;
         cout<< endl<< endl<< "Test completed!"<< endl<< string(70, '-')<< endl;
     }
 }
 
 TEST_FIXTURE(test_fixture_class, split_subdir_test)
 {
-    copy_test_data data(const_copy_test_data());
-    std::string test_child(random_child(data.source));
-    std::pair<std::string, std::string> tempp(split_subdir(data.source, test_child));
+    std::string test_child(random_child(test_folder));
+    std::pair<std::string, std::string> tempp(split_subdir(test_folder, test_child));
     {
         using namespace std;
         
         cout<< endl<< endl<< std::string(70, '-')<< endl;
         cout<< "split_subdir test case: "<< endl<< endl;
-        cout<< "root =       \""<< data.source<< endl;
+        cout<< "root =       \""<< test_folder<< endl;
         cout<< "test_child = \""<< test_child<< endl;
         cout<< endl;
         cout<< "result.first:  \""<< tempp.first<< "\""<< endl;
         cout<< "result.second: \""<< tempp.second<< "\""<< endl;
         cout<< endl<< string(70, '-')<< endl;
     }
-    CHECK(tempp.first == data.source);
+    CHECK(tempp.first == test_folder);
     CHECK((tempp.first + tempp.second) == test_child);
-    //ethrow("split_subdir test:\nroot: \"" + tempp.first + "\"\nsub: \"" + tempp.second + "\"");
 }
 
 TEST_FIXTURE(test_fixture_class, copy_directories_test_case)
 {
-    copy_test_data data(const_copy_test_data());
     bool tempb(false);
     std::string temps;
     
-    tempb = test_copy_directories(data.source + "/nothing/whatever");
+    tempb = test_copy_directories(test_folder + "/nothing/whatever");
     CHECK(!tempb);
     tempb = true;
     for(unsigned int x = 0; ((x < 500) && tempb); x++)
@@ -767,11 +627,11 @@ TEST_FIXTURE(test_fixture_class, copy_directories_test_case)
         {
             test_fixture_class fixture;
         }
-        tempb = test_copy_directories(random_child_folder(data.source));
+        tempb = test_copy_directories(random_child_folder(test_folder));
         if(!tempb) std::cout<< "temps = \""<< temps<< "\""<< std::endl;
         CHECK(tempb);
     }
-    tempb = test_copy_directories(data.source);
+    tempb = test_copy_directories(test_folder);
     CHECK(tempb);
     //the next test is supposed to fail with an exception for the programmer:
     /*tempb = test_copy_directories(parent_path(data.source));
@@ -782,26 +642,82 @@ TEST_FIXTURE(test_fixture_class, parent_path_test_case)
 {
     /*this test may have to be modified for windows users.  In that case, the 
      * expected result of operating on the "root" (aka: "C:\") would be an empty string. */
-    copy_test_data data(const_copy_test_data());
-    std::string parent(parent_path(data.source));
-    CHECK(parent == parent_of_test_folder());
-    parent = parent_path("/");
-    CHECK(parent.empty());
-    parent = data.source;
-    for(unsigned int x = 0; x < 50; x++) parent = parent_path(parent);
-    CHECK(parent.empty());
+    CHECK(parent_path(test_folder) == parent);
+    CHECK(parent_path("/").empty());
+    std::string temps(test_folder);
+    for(unsigned int x = 0; x < 50; x++) temps = parent_path(temps);
+    CHECK(temps.empty());
 }
 
 TEST_FIXTURE(test_fixture_class, is_child_test_case)
 {
-    copy_test_data data(const_copy_test_data());
     for(unsigned int x = 0; x < 500; x++)
     {
-        CHECK(is_child(random_child(data.source), data.source));
-        CHECK(!is_child(data.source, random_child(data.source)));
+        CHECK(is_child(random_child(test_folder), test_folder));
+        CHECK(!is_child(test_folder, random_child(test_folder)));
     }
 }
 
-//test construct_new_path
+
+
+/* anonymous test functions: */
+namespace
+{
+    inline bool test_copy_directories(const std::string& subfolder)
+    {
+        test_fixture_class reset;
+        std::string new_path(std::string(unittest_DEST) + fsys::pref_slash() + 
+                        boost::filesystem::path(unittest_TEST_FOLDER).filename().string() + 
+                        split_subdir(unittest_TEST_FOLDER, subfolder).second);
+        if(fsys::create_folder(unittest_DEST).value)
+        {
+            return (copy_directories(unittest_TEST_FOLDER, unittest_DEST, subfolder) && 
+                            fsys::is_folder(new_path).value && 
+                            !fsys::is_symlink(new_path).value);
+        }
+        ethrow("test: could not create the test folder: \"" + std::string(unittest_DEST) + "\"");
+    }
+    
+    inline unsigned long count_contents_of_folder(const std::string& folder)
+    {
+        unsigned long count(0);
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it) count++;
+        return count;
+    }
+    
+    inline std::string random_child(const std::string& folder)
+    {
+        unsigned long child(rand() % count_contents_of_folder(folder)), iteration(0);
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it, ++iteration)
+        {
+            if(iteration == child) return it.value();
+        }
+        return "";
+    }
+    
+    inline std::string random_child_folder(const std::string& folder)
+    {
+        unsigned int element, count(0);
+        
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it)
+        {
+            if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value) ++count;
+        }
+        element = rdata::random_number(0, count);
+        count = 0;
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it)
+        {
+            if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value)
+            {
+                ++count;
+                if(count == element) return it.value();
+            }
+        }
+        return folder;
+    }
+    
+    
+}
+
 
 #endif
