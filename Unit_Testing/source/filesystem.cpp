@@ -49,7 +49,6 @@ namespace
     boost::filesystem::recursive_directory_iterator init_directory_rec_iterator(const boost::filesystem::path&);
     std::string parent_path(const std::string&);
     bool is_child(const std::string&, const std::string&);
-    std::string construct_new_path(const std::string&, const std::string&, const std::string&);
     fsys::result_data_boolean is_empty(const std::string&);
     std::pair<std::string, std::string> split_subdir(const std::string&, const std::string&);
     std::string dive(const unsigned int&, const std::string&);
@@ -423,34 +422,6 @@ namespace
         return ischild;
     }
     
-    /* Creates a new path under a destination folder, given a root folder, a destination folder, 
-     and a path that is assumed to be under the root folder.
-     
-     Example:
-     cur: "/home/username/documents/essays/an essay.txt"  
-     root: "/home/username/documents"
-     Destination: "/home/username"
-     
-     Result: /home/username/essays/an essay.txt" */
-    inline std::string construct_new_path(const std::string& root, const std::string& destination, 
-            const std::string& cur)
-    {
-        std::string new_path(cur);
-        if(cur.size() > root.size())
-        {
-            new_path.erase(new_path.begin(), (new_path.begin() + (cur.size() - (root.size() + 1))));
-            if(*new_path.begin() == boost::filesystem::path("/").make_preferred().string()[0])
-            {
-                new_path.erase(new_path.begin());
-            }
-            new_path = (destination + boost::filesystem::path("/").make_preferred().string() +
-                    new_path);
-        }
-        else new_path = root;
-        
-        return new_path;
-    }
-    
     inline fsys::result_data_boolean is_empty(const std::string& s)
     {
         using fsys::is_folder;
@@ -806,7 +777,8 @@ namespace fsys
         {
             if(!fsys::is_folder(from).value || !fsys::is_folder(to).value || 
                     (fsys::is_folder(from).value && fsys::is_symlink(from).value) || 
-                    (fsys::is_folder(to).value && fsys::is_symlink(to).value))
+                    (fsys::is_folder(to).value && fsys::is_symlink(to).value) ||
+                    is_child(to, from))
             {
                 ethrow("Error: copy_iterator_class::copy_iterator_class(const std::string&) -> can not construct with \
 invalid path!  Args can only be a folder.");
@@ -858,8 +830,7 @@ invalid path!  Args can only be a folder.");
                         {
                             case false:
                             {
-                                std::string temps(construct_new_path(this->p.string(), 
-                                        this->dest, parent_path(this->value())));
+                                std::string temps(this->dest + split_subdir(parent_path(this->p.string()), this->value()).second);
                                 
                                 //only copy the parent path if it doesn't exist
                                 if(!is_folder(temps).value)

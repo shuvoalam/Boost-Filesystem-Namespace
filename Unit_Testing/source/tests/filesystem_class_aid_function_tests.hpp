@@ -29,11 +29,7 @@
 
 #include "filesystem.hpp"
 #include "random_test_data.hpp"
-
-
-#define unittest_TEST_FOLDER "/mnt/ENCRYPTED/C++/Finished_Projects/filesystem_namespace/Unit_Testing/build/test_folder"
-#define unittest_DEST (std::string(unittest_TEST_FOLDER) + "/DESTINATION OF COPY TEST")
-#define unittest_PARENT_OF_TEST_FOLDER "/mnt/ENCRYPTED/C++/Finished_Projects/filesystem_namespace/Unit_Testing/build"
+#include "test_globals.hpp"
 
 
 typedef class test_fixture_class test_fixture_class;
@@ -46,9 +42,6 @@ public:
                     dest_folder(unittest_DEST), 
                     parent(unittest_PARENT_OF_TEST_FOLDER)
     {
-        /* attn make sure that this is set up properly.  You should make a test folder
-         *  and write a script to copy it to the build where it can be safely modified 
-         * and worked with by the program. */
         system("../setup_test");
     }
     
