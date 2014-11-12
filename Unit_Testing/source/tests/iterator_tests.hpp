@@ -75,9 +75,17 @@ namespace
         {
             for(tree_riterator_class it(from); !it.at_end(); ++it)
             {
-                if(!exists(path((to + split_subdir(parent_path(from), it.value()).second)))) return false;
+                if(!exists(path((to + split_subdir(parent_path(from), it.value()).second))))
+                {
+                    using std::cout;
+                    using std::endl;
+                    
+                    cout<< endl<< "check_copy:\n from = \""<< from<< "\""<< endl;
+                    cout<< "to = \""<< (to + split_subdir(parent_path(from), it.value()).second)<< "\""<< endl;
+                    return false;
+                }
             }
-            return (content_count(from) == content_count(to));
+            return (content_count(from) == (content_count(to) - 1));
         }
         else return false;
         return true;
@@ -106,7 +114,7 @@ namespace
     }
     
     
-    //test copy that will copy, and check the results. 
+    //copy function that will test copy, and check the results. 
     inline bool copy(const std::string& from, const std::string& to)
     {
         using fsys::copy_iterator_class;
