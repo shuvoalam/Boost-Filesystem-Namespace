@@ -32,6 +32,8 @@ namespace
     std::pair<std::string, std::string> split_subdir(const std::string&, const std::string&);
     bool check_copy(const std::string&, const std::string&);
     std::string parent_path(const std::string&);
+    bool del(const std::string&);
+    void find_invalid_paths();
     
     
     
@@ -113,7 +115,6 @@ namespace
         return p;
     }
     
-    
     //copy function that will test copy, and check the results. 
     inline bool copy(const std::string& from, const std::string& to)
     {
@@ -148,6 +149,60 @@ namespace
         return check_copy(from, to);
     }
     
+    inline bool del(const std::string& p)
+    {
+        if(fsys::is_symlink(p).value || fsys::is_file(p).value)
+        {
+            return fsys::fdelete(p).value;
+        }
+        else if(fsys::is_folder(p).value)
+        {
+            for(fsys::delete_iterator_class it(p); !it.at_end();)
+            {
+                if(!it.err.value)
+                {
+                    using std::cout;
+                    using std::endl;
+                    
+                    cout<< endl<< "del(const std::string&): ERROR: \""<< 
+                                    it.err.error<< "\""<< endl;
+                    cout<< "bool del(const std::string&): skipping: \""<< 
+                                    it.value()<< "\""<< endl;
+                    it.skip();
+                    continue;
+                }
+                ++it;
+            }
+            return !boost::filesystem::exists(boost::filesystem::path(p));
+        }
+        return false;
+    }
+    
+    inline void find_invalid_paths()
+    {
+        using fsys::tree_riterator_class;
+        using fsys::is_file;
+        using fsys::is_folder;
+        using fsys::is_symlink;
+        using std::cout;
+        using std::endl;
+        
+        for(unsigned int x = 0; x < 2; ++x) cout<< endl;
+        cout<< "Please wait, finding invalid paths in home...."<< endl;
+        for(tree_riterator_class it("/home/jonathan"); !it.at_end(); ++it)
+        {
+            if(!is_folder(it.value()).value && !is_file(it.value()).value && 
+                            !is_symlink(it.value()).value)
+            {
+                using std::cout;
+                using std::endl;
+                
+                cout<< "Invalid: \""<< it.value()<< "\""<< endl;
+            }
+        }
+        for(unsigned int x = 0; x < 2; ++x) cout<< endl;
+    }
+    
     
 }
 
@@ -158,5 +213,18 @@ TEST_FIXTURE(test_fixture_class, copy_iterator_test_case)
     if(fsys::create_folder(dest_folder).value) result = copy(test_folder, dest_folder);
     CHECK(result);
 }
+
+TEST_FIXTURE(test_fixture_class, delete_iterator_test_case)
+{
+    bool result(false);
+    
+    if(fsys::is_folder(test_folder).value && !fsys::is_symlink(test_folder).value)
+    {
+        result = del(test_folder);
+    }
+    CHECK(result);
+    find_invalid_paths();
+}
+
 
 #endif
