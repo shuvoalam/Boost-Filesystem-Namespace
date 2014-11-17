@@ -133,9 +133,9 @@ namespace
         cout<< "testing copy..."<< endl<< endl;
         for(copy_iterator_class it(from, to); !it.at_end(); ++it, ++progress)
         {
-            if(!it.err.value)
+            if(!it.success.value)
             {
-                cout<< "Error: \""<< it.err.error<< "\""<< endl;
+                cout<< "Error: \""<< it.success.error<< "\""<< endl;
                 it.skip();
             }
             prev_perc = percent;
@@ -159,13 +159,13 @@ namespace
         {
             for(fsys::delete_iterator_class it(p); !it.at_end();)
             {
-                if(!it.err.value)
+                if(!it.success.value)
                 {
                     using std::cout;
                     using std::endl;
                     
                     cout<< endl<< "del(const std::string&): ERROR: \""<< 
-                                    it.err.error<< "\""<< endl;
+                                    it.success.error<< "\""<< endl;
                     cout<< "bool del(const std::string&): skipping: \""<< 
                                     it.value()<< "\""<< endl;
                     it.skip();
@@ -206,6 +206,22 @@ namespace
     
 }
 
+TEST_FIXTURE(test_fixture_class, recursive_directory_iterator_test_case)
+{
+    using fsys::tree_riterator_class;
+    
+    tree_riterator_class it(test_folder);
+    CHECK(it.value() != test_folder);
+}
+
+TEST_FIXTURE(test_fixture_class, directory_iterator_test_case)
+{
+    using fsys::tree_iterator_class;
+    
+    tree_iterator_class it(test_folder);
+    CHECK(it.value() != test_folder);
+}
+
 TEST_FIXTURE(test_fixture_class, copy_iterator_test_case)
 {
     bool result(false);
@@ -226,5 +242,15 @@ TEST_FIXTURE(test_fixture_class, delete_iterator_test_case)
     find_invalid_paths();
 }
 
+TEST_FIXTURE(test_fixture_class, can_delete_test_case)
+{
+    using fsys::can_delete;
+    using fsys::is_folder;
+    using fsys::is_file;
+    
+    CHECK(!can_delete(test_folder));
+    CHECK(can_delete((test_folder + fsys::pref_slash() + "empty folder")));
+    CHECK(can_delete(test_folder + fsys::pref_slash() + ".bash_history"));
+}
 
 #endif
