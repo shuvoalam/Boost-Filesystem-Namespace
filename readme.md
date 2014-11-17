@@ -36,11 +36,12 @@ This is still not a finished product.  I would like to perform more testing on w
 --- 
 ##Recent Modifications: 
  
--  Added unit tests for the anonymous namespace in filesystem.cpp. 
+-  Added unit tests for the anonymous namespace in filesystem.cpp.
+-  added unit tests for filesystem iterators.
  
 --- 
  
 ###Project Plans: 
  
--  Provide unit tests for (almost) every function.  I want to provide complete testing to ensure there are no problems encountered during use. 
+-  (almost complete) Provide unit tests for (almost) every function.  I want to provide complete testing to ensure there are no problems encountered during use. 
 -  Clean up the code and make it more efficient. 
