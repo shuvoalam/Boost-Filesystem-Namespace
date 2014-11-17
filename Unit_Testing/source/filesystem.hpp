@@ -44,6 +44,20 @@ namespace fsys
     result_data_boolean is_symlink(const std::string&);
     result_data_boolean copy_folders(const std::string&, const std::string&, const std::string&);
     
+    /* Returns a string that represents a group of characters that should
+     never appear in a filename on Windows. */
+    inline std::string windows_bad_filename_chars()
+    {
+        return std::string("<>:\"\\/|?*");
+    }
+    
+    /* Returns a string that represents a group of characters that should
+     never appear in a filename on Linux. */
+    inline std::string linux_bad_filename_chars()
+    {
+        return std::string("\0\n/");
+    }
+    
     
     typedef struct result_data_boolean
     {
@@ -181,20 +195,6 @@ namespace fsys
         void delete_path(const std::string&);
         
     } delete_iterator_class;
-    
-    /* Returns a string that represents a group of characters that should
-     never appear in a filename on Windows. */
-    inline std::string windows_bad_filename_chars()
-    {
-        return std::string("<>:\"\\/|?*");
-    }
-    
-    /* Returns a string that represents a group of characters that should
-     never appear in a filename on Linux. */
-    inline std::string linux_bad_filename_chars()
-    {
-        return std::string("\0\n/");
-    }
     
     
 }

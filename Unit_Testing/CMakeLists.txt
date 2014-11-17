@@ -35,7 +35,7 @@ set(PROGRAM_NAME unit_tests)
 set(SOURCE_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}/source)
 
 #compiler flag settings
-set(BUILD_RELEASE false) #default debug
+set(BUILD_RELEASE true) #default debug
 set(ENABLE_MULTITHREADING false)
 set(CPLUSPLUS_11 false)
 set(C_11 false)

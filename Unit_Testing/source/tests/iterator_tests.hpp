@@ -34,6 +34,8 @@ namespace
     std::string parent_path(const std::string&);
     bool del(const std::string&);
     void find_invalid_paths();
+    bool test_fdelete(const std::string&);
+    std::string random_sub_path(const std::string&, fsys::result_data_boolean (*)(const std::string&));
     
     
     
@@ -203,6 +205,69 @@ namespace
         for(unsigned int x = 0; x < 2; ++x) cout<< endl;
     }
     
+    inline std::string random_sub_path(const std::string& root, fsys::result_data_boolean (*match)(const std::string&))
+    {
+        using fsys::tree_riterator_class;
+        using fsys::is_folder;
+        
+        unsigned long count(0), selection(0);
+        
+        if(!is_folder(root).value) return "";
+        for(tree_riterator_class it(root); !it.at_end(); ++it)
+        {
+            if(match(it.value()).value) ++count;
+        }
+        selection = (rand() % count);
+        count = 0;
+        for(tree_riterator_class it(root); !it.at_end(); ++it)
+        {
+            if(match(it.value()).value)
+            {
+                ++count;
+                if(count == selection) return it.value();
+            }
+        }
+        return "";
+    }
+    
+    inline fsys::result_data_boolean can_delete_match_function(const std::string& s)
+    {
+        fsys::result_data_boolean res;
+        res.path = s;
+        res.value = fsys::can_delete(s);
+        return res;
+    }
+    
+    inline bool test_fdelete(const std::string& root)
+    {
+        using fsys::can_delete;
+        using fsys::is_folder;
+        using fsys::is_symlink;
+        using fsys::fdelete;
+        
+        /*we'll need to explicitly construct and destruct to eliminate possibility 
+         * that it will be optimized out: */
+        test_fixture_class *fixture(NULL);
+        std::string temps;
+        
+        if(!is_folder(root).value) return false;
+        for(unsigned int x = 0; x < 100; ++x)
+        {
+            fixture = new test_fixture_class;
+            temps = random_sub_path(root, can_delete_match_function);
+            if(!fdelete(temps).value && !temps.empty())
+            {
+                if(!is_folder(temps).value)
+                {
+                    std::cout<< "fdelete test: failed to delete \""<< temps<< "\""<< std::endl;
+                    return false;
+                }
+            }
+            delete fixture;
+        }
+        return true;
+    }
+    
     
 }
 
@@ -247,10 +312,29 @@ TEST_FIXTURE(test_fixture_class, can_delete_test_case)
     using fsys::can_delete;
     using fsys::is_folder;
     using fsys::is_file;
+    using std::cout;
+    using std::endl;
+    
+    std::string temps(random_sub_path(test_folder, fsys::is_file));
     
     CHECK(!can_delete(test_folder));
     CHECK(can_delete((test_folder + fsys::pref_slash() + "empty folder")));
-    CHECK(can_delete(test_folder + fsys::pref_slash() + ".bash_history"));
+    
+    //test if we can delete a random file: 
+    if(!temps.empty())
+    {
+        CHECK(can_delete(test_folder + fsys::pref_slash() + "orphanedpacs"));
+    }
+    else
+    {
+        cout<< "Error: couldn't locate a random file."<< endl;
+        CHECK(false);
+    }
+}
+
+TEST_FIXTURE(test_fixture_class, fdelete_test_case)
+{
+    CHECK(test_fdelete(test_folder));
 }
 
 #endif
