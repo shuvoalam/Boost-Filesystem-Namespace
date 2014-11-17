@@ -17,19 +17,43 @@
 #endif
 #endif
 
-
 #include <unittest++/UnitTest++.h>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <iostream>
 #include <string>
+#include <vector>
+#include <iostream>
 #include <boost/filesystem.hpp>
+#include <utility>
 
 #include "filesystem.hpp"
+#include "random_test_data.hpp"
+#include "test_globals.hpp"
 
 
-class test_fixture_class;
+typedef class test_fixture_class test_fixture_class;
+
+
+typedef class test_fixture_class
+{
+public:
+    explicit test_fixture_class() : test_folder(unittest_TEST_FOLDER), 
+                    dest_folder(unittest_DEST), 
+                    parent(unittest_PARENT_OF_TEST_FOLDER)
+    {
+        system("../setup_test");
+    }
+    
+    ~test_fixture_class(){}
+    
+    std::string test_folder, dest_folder, parent;
+
+private:
+    
+    
+} test_fixture_class;
+
 
 namespace
 {
@@ -52,14 +76,14 @@ namespace
     boost::filesystem::recursive_directory_iterator init_directory_rec_iterator(const boost::filesystem::path&);
     std::string parent_path(const std::string&);
     bool is_child(const std::string&, const std::string&);
-    std::string construct_new_path(const std::string&, const std::string&, const std::string&);
     fsys::result_data_boolean is_empty(const std::string&);
-    std::string newpath(const std::string&, const std::string&, const std::string&);
+    std::pair<std::string, std::string> split_subdir(const std::string&, const std::string&);
+    std::string dive(const unsigned int&, const std::string&);
     
     
 #if FILESYSTEM_USE_RUNTIME_ERRORS == true
-    #define ethrow(MSG) throw std::runtime_error(("EXCEPTION THROWN: \"" + std::string(__FILE__)\
-+ "\"  @ Line " + itoa(__LINE__) + ": " + std::string(MSG)))
+    #define ethrow(MSG) throw std::runtime_error(("EXCEPTION THROWN: \n\"" + std::string(__FILE__)\
++ "\"\n @ Line " + itoa(__LINE__) + ": \n" + std::string(MSG)))
 
 #else
     #define ethrow(MSG)
@@ -78,25 +102,37 @@ namespace
         return temps;
     }
     
-    /* Copies a set of sub-folders whether they exist or not. */
+    /** Returns a string that is "levels" levels into "path".  
+     * A "level" is one level of the directory tree.  example: /mnt/run/etc is 3 "levels"
+     * deep.*/
+    inline std::string dive(const unsigned int& levels, const std::string& path)
+    {
+        size_t first_slash(path.find(fsys::pref_slash()));
+        unsigned int pos(path.size()), lev(0);
+        
+        if(first_slash != std::string::npos)
+        {
+            for(unsigned int x = (first_slash + 1); ((x < path.size()) && (lev < levels)); ++x)
+            {
+                if(path[x] == fsys::pref_slash())
+                {
+                    ++lev;
+                    pos = x;
+                }
+            }
+            if(lev != levels) pos = path.size();
+        }
+        return path.substr(0, pos);
+    }
+    
+    /* Copies a set of sub-folders into a target folder whether they exist or not. */
     inline bool copy_directories(const std::string& from, const std::string& to, const std::string& source)
     {
-        boost::filesystem::path path_from(from), path_to(to);
-        boost::system::error_code err;
-        std::string newpath(source), temps, newfrom;
-        int levels(0);
-        bool temp_b(true);
-        
-        /* Create the new path in the 'to' folder. */
+        if(!is_child(source, from) && (from != source))
         {
-            if(newpath.size() > from.size())
-            {
-                short tempi(
-                        ((parent_path(from) == boost::filesystem::path("/").make_preferred().string()) ? 0 : 1));
-                newpath.erase(newpath.begin(), (newpath.begin() + parent_path(from).size() + tempi));
-            }
+            ethrow("copy_directories: source is not a child of from.");
         }
-        newpath = (to + boost::filesystem::path("/").make_preferred().string() + newpath);
+        boost::system::error_code err;
         
         try
         {
@@ -122,52 +158,26 @@ namespace
             ethrow(e.what());
         }
         
-        if(source != from)
+        if((source != from) && fsys::is_folder(source).value && !fsys::is_symlink(source).value)
         {
-            while(!fsys::is_folder(newpath).value && temp_b)
+            std::string temps(split_subdir(from, source).second);
+            
+            std::string newdest, newfrom;
+            int tempi(0);
+            
+            for(unsigned int x = 0; x < temps.size(); x++) if(temps[x] == fsys::pref_slash()) ++tempi;
+            for(int x = 1; x <= tempi; ++x)
             {
-                temps = newpath;
+                newdest = (to + fsys::pref_slash() + 
+                                boost::filesystem::path(from).filename().string() + 
+                                dive(x, temps));
+                newfrom = (from + dive(x, temps));
                 try
                 {
-                    /* Extract the next folder we can copy: */
-                    {
-                        boost::filesystem::path p(temps), prev_p(newpath);
-                        boost::system::error_code err;
-                        levels = 0;
-                        if(temps.size() > to.size())
-                        {
-                            p = parent_path(p.string());
-                            levels = 0;
-                            try
-                            {
-                                while((p.string() != to) && !boost::filesystem::is_directory(p, err))
-                                {
-                                    prev_p = p;
-                                    p = parent_path(p.string());
-                                    levels++;
-                                }
-                            }
-                            catch(const std::exception& e)
-                            {
-                                ethrow(e.what());
-                            }
-                            temps = prev_p.string();
-                        }
-                        temp_b = (!boost::filesystem::is_directory(prev_p, err) && (p.string() != to));
-                    }
-                }
-                catch(const std::exception& e)
-                {
-                    ethrow(e.what());
-                }
-                newfrom = source;
-                for(int x = 0; x < levels; x++) newfrom = parent_path(newfrom);
-                try
-                {
-                    if(!fsys::is_folder(temps).value && fsys::is_folder(newfrom).value && 
+                    if(!fsys::is_folder(newdest).value && fsys::is_folder(newfrom).value && 
                             !fsys::is_symlink(newfrom).value)
                     {
-                        boost::filesystem::copy_directory(newfrom, temps, err);
+                        boost::filesystem::copy_directory(newfrom, newdest, err);
                     }
                 }
                 catch(const std::exception& e)
@@ -178,21 +188,22 @@ namespace
         }
         try
         {
-            temp_b = (
+            std::string new_path(to + split_subdir(parent_path(from), source).second);
+            return (
                     !is_error(err) && 
-                    boost::filesystem::is_directory(boost::filesystem::path(newpath), err) && 
-                    !boost::filesystem::is_symlink(newpath));
+                    boost::filesystem::is_directory(boost::filesystem::path(new_path), err) && 
+                    !boost::filesystem::is_symlink(new_path));
         }
         catch(const std::exception& e)
         {
             ethrow(e.what());
         }
-        return temp_b;
+        return false;
     }
     
     inline bool is_error(const boost::system::error_code& err)
     {
-        return !(!err);
+        return (err != boost::system::errc::success);
     }
     
     inline fsys::result_data_boolean boost_bool_funct(bool (*f)(const boost::filesystem::path&, 
@@ -213,6 +224,7 @@ namespace
         if(is_error(err))
         {
             result.error = err.message();
+            result.value = false;
         }
         return result;
     }
@@ -255,26 +267,26 @@ namespace
         return it;
     }
     
-    /** For use in copy_path, this function constructs the real target
-     * path a folder or file should be copied to given the source, destination folder,
-     * and the current iteration under the source folder. 
+    /** Splits a directory into a root, and a relative subdirectory.  Ex: 
      * 
-     * Example of the process:
+     * /a/root/path
+     * /a/root/path/with/a/child
      * 
-     * "/a/folder/that/we/are/copying/file.txt" from "/a/folder" into "/a/destination"
-     * first, we take all the subdirectories under the source ("/a/folder"): 
-     * "folder/that/we/are/copying/file.txt"
-     * and we append them to the end of the destination:
-     * "/a/destination/folder/that/we/are/copying/file.txt"*/
-    inline std::string newpath(const std::string& from, const std::string& to, const std::string& iteration)
+     * returns: std::pair<std::string, std::string>("/a/root/path", "/with/a/child") */
+    inline std::pair<std::string, std::string> split_subdir(const std::string& root, const std::string& sub)
     {
-        std::string temps(iteration);
-        if((temps.size() > from.size()) && !from.empty())
+        std::pair<std::string, std::string> p;
+        if(!sub.empty())
         {
-            temps.erase(temps.begin(), (temps.begin() + (parent_path(from).size() + 1)));
-            temps = (to + boost::filesystem::path("/").make_preferred().string() + temps);
+            p.first = root;
+            if(sub.size() > root.size())
+            {
+                p.second = sub;
+                p.second.erase(p.second.begin(), (p.second.begin() + p.first.size()));
+            }
+            else p.second = "";
         }
-        return temps;
+        return p;
     }
     
     inline fsys::result_data_boolean recurs_folder_copy(const std::string& from, const std::string& to)
@@ -307,6 +319,7 @@ namespace
                                     ec);
                             if(is_error(ec))
                             {
+                                ethrow(ec.message());
                                 res.value = false;
                                 res.error = ec.message();
                             }
@@ -317,7 +330,7 @@ namespace
                             res.error = e.what();
                             if((sizeof e.what()) == 0)
                             {
-                                ethrow("Emtpy error message thrown here!");
+                                ethrow("Empty error message thrown here!");
                             }
                         }
                     }
@@ -348,7 +361,7 @@ namespace
                                         {
                                             try
                                             {
-                                                temps = newpath(from, to, it.value());
+                                                temps = (to + split_subdir(parent_path(from), it.value()).second);
                                                 if(!fsys::is_file(temps).value && !fsys::is_symlink(temps).value)
                                                 {
                                                     boost::filesystem::copy(it.value(), temps);
@@ -397,7 +410,8 @@ namespace
             {
                 res.value = false;
                 res.error = ("Error: args not valid.  Recursive folder copy \
- algorithm can only copy a folder into a folder!");
+ algorithm can only copy a folder into a folder!\n\nFrom = \"" + from + "\"\n\n\
+ To = \"" + to + "\"");
             }
             break;
             
@@ -435,34 +449,6 @@ namespace
         return ischild;
     }
     
-    /* Creates a new path under a destination folder, given a root folder, a destination folder, 
-     and a path that is assumed to be under the root folder.
-     
-     Example:
-     cur: "/home/username/documents/essays/an essay.txt"  
-     root: "/home/username/documents"
-     Destination: "/home/username"
-     
-     Result: /home/username/essays/an essay.txt" */
-    inline std::string construct_new_path(const std::string& root, const std::string& destination, 
-            const std::string& cur)
-    {
-        std::string new_path(cur);
-        if(cur.size() > root.size())
-        {
-            new_path.erase(new_path.begin(), (new_path.begin() + (cur.size() - (root.size() + 1))));
-            if(*new_path.begin() == boost::filesystem::path("/").make_preferred().string()[0])
-            {
-                new_path.erase(new_path.begin());
-            }
-            new_path = (destination + boost::filesystem::path("/").make_preferred().string() +
-                    new_path);
-        }
-        else new_path = root;
-        
-        return new_path;
-    }
-    
     inline fsys::result_data_boolean is_empty(const std::string& s)
     {
         using fsys::is_folder;
@@ -495,25 +481,47 @@ unknown error occured!";
         return res;
     }
     
+    inline bool file_is_type(const std::string& s, const boost::filesystem::file_type& t)
+    {
+        using boost::filesystem::status;
+        using boost::filesystem::path;
+        using boost::filesystem::exists;
+        
+        boost::system::error_code ec;
+        bool b(false);
+        
+        if(exists(s, ec))
+        {
+            try
+            {
+                b = (status(path(s), ec).type() == t);
+                if(is_error(ec))
+                {
+                    ethrow(ec.message());
+                }
+            }
+            catch(const std::exception& e)
+            {
+                ethrow(e.what());
+            }
+        }
+        return b;
+    }
+    
     
 }
 
 
-class test_fixture_class
+//forward decs for test functions
+namespace
 {
-public:
-    explicit test_fixture_class()
-    {
-        system("/mnt/ENCRYPTED/C++/Finished_Projects/filesystem_namespace/Unit_Testing/setup_test");
-    }
+    bool test_copy_directories(const std::string&);
+    std::string random_child(const std::string&);
+    unsigned long count_contents_of_folder(const std::string&);
+    std::string random_child_folder(const std::string&);
     
-    ~test_fixture_class(){}
-    
-    
-private:
-    
-    
-};
+}
+
 
 TEST_FIXTURE(test_fixture_class, is_error_test)
 {
@@ -522,11 +530,9 @@ TEST_FIXTURE(test_fixture_class, is_error_test)
     
     path p("test_folder");
     error_code ec;
-    bool tempb(false);
     
     boost::filesystem::remove(p, ec);
-    tempb = is_error(ec);
-    CHECK(tempb);
+    CHECK(is_error(ec));
     CHECK(ec != boost::system::errc::success);
 }
 
@@ -542,6 +548,169 @@ TEST_FIXTURE(test_fixture_class, init_recursive_directory_iterator_test_case)
     CHECK(boost::filesystem::recursive_directory_iterator("test_folder")->path() == it->path());
 }
 
-//cur_pos recurse_folder_copy test
+TEST_FIXTURE(test_fixture_class, recurse_folder_copy_test_case)
+{
+    std::string test_folder(boost::filesystem::current_path().string() + "/test_folder"), 
+                    dest_folder(test_folder + "/DESTINATION OF COPY TEST");
+    std::vector<std::string> subfolders;
+    subfolders.push_back("empty folder");
+    subfolders.push_back("folder of files");
+    subfolders.push_back("folder of folders");
+    subfolders.push_back("folder of symlinks");
+    subfolders.push_back("mixed folder");
+    
+    fsys::create_folder(dest_folder);
+    CHECK(boost::filesystem::exists(boost::filesystem::path(dest_folder)));
+    if(!boost::filesystem::exists(boost::filesystem::path(dest_folder))) ethrow("Could not create the destination folder for the copy test!");
+    
+    for(std::vector<std::string>::const_iterator it = subfolders.begin(); it != subfolders.end(); ++it)
+    {
+        {
+            fsys::result_data_boolean tempres(recurs_folder_copy((test_folder + "/" + *it), dest_folder));
+            if(!tempres.value)
+            {
+                ethrow(("Error returned: " + tempres.error));
+            }
+        }
+        CHECK(boost::filesystem::exists(boost::filesystem::path((dest_folder + "/" + *it))));
+    }
+}
+
+TEST(dive_test_case)
+{
+    {
+        using namespace std;
+        
+        cout<< endl<< endl<< string(70, '-')<< endl<< "Testing Dive: "<< endl<< endl;
+        for(unsigned int x = 0; x < 20; x++) cout<< "level "<< x<< ":  "<< dive(x, unittest_TEST_FOLDER)<< endl;
+        cout<< endl<< endl<< "Test completed!"<< endl<< string(70, '-')<< endl;
+    }
+}
+
+TEST_FIXTURE(test_fixture_class, split_subdir_test)
+{
+    std::string test_child(random_child(test_folder));
+    std::pair<std::string, std::string> tempp(split_subdir(test_folder, test_child));
+    {
+        using namespace std;
+        
+        cout<< endl<< endl<< std::string(70, '-')<< endl;
+        cout<< "split_subdir test case: "<< endl<< endl;
+        cout<< "root =       \""<< test_folder<< endl;
+        cout<< "test_child = \""<< test_child<< endl;
+        cout<< endl;
+        cout<< "result.first:  \""<< tempp.first<< "\""<< endl;
+        cout<< "result.second: \""<< tempp.second<< "\""<< endl;
+        cout<< endl<< string(70, '-')<< endl;
+    }
+    CHECK(tempp.first == test_folder);
+    CHECK((tempp.first + tempp.second) == test_child);
+}
+
+TEST_FIXTURE(test_fixture_class, copy_directories_test_case)
+{
+    bool tempb(false);
+    std::string temps;
+    
+    tempb = test_copy_directories(test_folder + "/nothing/whatever");
+    CHECK(!tempb);
+    tempb = true;
+    for(unsigned int x = 0; ((x < 500) && tempb); x++)
+    {
+        {
+            test_fixture_class fixture;
+        }
+        tempb = test_copy_directories(random_child_folder(test_folder));
+        if(!tempb) std::cout<< "temps = \""<< temps<< "\""<< std::endl;
+        CHECK(tempb);
+    }
+    tempb = test_copy_directories(test_folder);
+    CHECK(tempb);
+    //the next test is supposed to fail with an exception for the programmer:
+    /*tempb = test_copy_directories(parent_path(data.source));
+    CHECK(!tempb);*/
+}
+
+TEST_FIXTURE(test_fixture_class, parent_path_test_case)
+{
+    /*this test may have to be modified for windows users.  In that case, the 
+     * expected result of operating on the "root" (aka: "C:\") would be an empty string. */
+    CHECK(parent_path(test_folder) == parent);
+    CHECK(parent_path("/").empty());
+    std::string temps(test_folder);
+    for(unsigned int x = 0; x < 50; x++) temps = parent_path(temps);
+    CHECK(temps.empty());
+}
+
+TEST_FIXTURE(test_fixture_class, is_child_test_case)
+{
+    for(unsigned int x = 0; x < 500; x++)
+    {
+        CHECK(is_child(random_child(test_folder), test_folder));
+        CHECK(!is_child(test_folder, random_child(test_folder)));
+    }
+}
+
+
+
+/* anonymous test functions: */
+namespace
+{
+    inline bool test_copy_directories(const std::string& subfolder)
+    {
+        test_fixture_class reset;
+        std::string new_path(std::string(unittest_DEST) + fsys::pref_slash() + 
+                        boost::filesystem::path(unittest_TEST_FOLDER).filename().string() + 
+                        split_subdir(unittest_TEST_FOLDER, subfolder).second);
+        if(fsys::create_folder(unittest_DEST).value)
+        {
+            return (copy_directories(unittest_TEST_FOLDER, unittest_DEST, subfolder) && 
+                            fsys::is_folder(new_path).value && 
+                            !fsys::is_symlink(new_path).value);
+        }
+        ethrow("test: could not create the test folder: \"" + std::string(unittest_DEST) + "\"");
+    }
+    
+    inline unsigned long count_contents_of_folder(const std::string& folder)
+    {
+        unsigned long count(0);
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it) count++;
+        return count;
+    }
+    
+    inline std::string random_child(const std::string& folder)
+    {
+        unsigned long child(rand() % count_contents_of_folder(folder)), iteration(0);
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it, ++iteration)
+        {
+            if(iteration == child) return it.value();
+        }
+        return "";
+    }
+    
+    inline std::string random_child_folder(const std::string& folder)
+    {
+        unsigned int element, count(0);
+        
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it)
+        {
+            if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value) ++count;
+        }
+        element = rdata::random_number(0, count);
+        count = 0;
+        for(fsys::tree_riterator_class it(folder); !it.at_end(); ++it)
+        {
+            if(fsys::is_folder(it.value()).value && !fsys::is_symlink(it.value()).value)
+            {
+                ++count;
+                if(count == element) return it.value();
+            }
+        }
+        return folder;
+    }
+    
+    
+}
+
 
 #endif
