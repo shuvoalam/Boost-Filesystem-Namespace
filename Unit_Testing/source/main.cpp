@@ -2,7 +2,7 @@
 #include <cstdlib>
 
 //change this to build a test suite of choice
-#define TEST_SUITE_INCLUDE 2
+#define TEST_SUITE_INCLUDE 1
 
 
 #if TEST_SUITE_INCLUDE == 1
