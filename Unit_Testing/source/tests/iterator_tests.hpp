@@ -414,7 +414,6 @@ TEST_FIXTURE(test_fixture_class, can_delete_test_case)
     CHECK(!can_delete(test_folder));
     CHECK(can_delete((test_folder + fsys::pref_slash() + "empty folder")));
     
-    //test if we can delete a random file: 
     if(!temps.empty())
     {
         CHECK(can_delete(random_sub_path(test_folder, fsys::is_file)));
